@@ -30,7 +30,7 @@ typedef enum
 
 TILETYPE grid[GRIDSIZE][GRIDSIZE];
 
-//Position playerPosition;
+Position playerPosition;
 int score;
 int level;
 int numTomatoes;
@@ -181,12 +181,13 @@ void *thread(void *vargp)
 void user_Interact(int connfd) 
 {
     //playerPosition.x = playerPosition.y = GRIDSIZE / 2;
-    Position playerPosition;
+    //Position playerPosition;
     playerPosition.x = playerPosition.y = rand()%GRIDSIZE ;
      //makes the initial grid
     
     size_t n; 
     char buf[MAXLINE]; 
+    char plrX[20],plrY[20];
     rio_t rio;
 
     Rio_readinitb(&rio, connfd);
@@ -195,9 +196,17 @@ void user_Interact(int connfd)
 	    //printf("server received %d bytes\n", (int)n);
 	    //Rio_writen(connfd, buf, n);
         //buf is what user sent
+
+        //show grid to user
+        Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        //get this users x and y
+        Rio_readlineb(&rio, plrX, MAXLINE);
+        playerPosition.x = plrX;
+        Rio_readlineb(&rio, plrY, MAXLINE);
+        playerPosition.y = plrY;
+        //process the even that we recieved
         processInputs(buf);
-
-
+        //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or write() ?
 
 
