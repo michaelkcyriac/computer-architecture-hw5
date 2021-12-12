@@ -20,7 +20,7 @@
 // Number of cells vertically/horizontally in the grid
 #define GRIDSIZE 10
 
-void processInputs(SDL_Event event);
+
 void user_Interact(int connfd);
 void *thread(void *vargp);
 
@@ -109,49 +109,6 @@ void moveTo(int x, int y)
     }
 }
 
-void handleKeyDown(SDL_KeyboardEvent* event)
-{
-    // ignore repeat events if key is held down
-    if (event->repeat)
-        return;
-
-    if (event->keysym.scancode == SDL_SCANCODE_Q || event->keysym.scancode == SDL_SCANCODE_ESCAPE)
-        shouldExit = true;
-
-    if (event->keysym.scancode == SDL_SCANCODE_UP || event->keysym.scancode == SDL_SCANCODE_W)
-        moveTo(playerPosition.x, playerPosition.y - 1);
-
-    if (event->keysym.scancode == SDL_SCANCODE_DOWN || event->keysym.scancode == SDL_SCANCODE_S)
-        moveTo(playerPosition.x, playerPosition.y + 1);
-
-    if (event->keysym.scancode == SDL_SCANCODE_LEFT || event->keysym.scancode == SDL_SCANCODE_A)
-        moveTo(playerPosition.x - 1, playerPosition.y);
-
-    if (event->keysym.scancode == SDL_SCANCODE_RIGHT || event->keysym.scancode == SDL_SCANCODE_D)
-        moveTo(playerPosition.x + 1, playerPosition.y);
-}
-
-void processInputs(SDL_Event event)
-{
-	//SDL_Event event;
-
-	while (SDL_PollEvent(&event)) {
-		switch (event.type) {
-			case SDL_QUIT:
-				shouldExit = true;
-				break;
-
-            case SDL_KEYDOWN:
-                handleKeyDown(&event.key);
-				break;
-
-			default:
-				break;
-		}
-	}
-}
-
-
 
 
 int main(int argc, char **argv) 
@@ -199,7 +156,7 @@ void user_Interact(int connfd)
     
     size_t n; 
     char buf[MAXLINE]; 
-    char plrX[20],plrY[20];
+    char plrX[20],plrY[20], new_X[20], new_Y[20];
     rio_t rio;
 
     Rio_readinitb(&rio, connfd);
@@ -216,8 +173,11 @@ void user_Interact(int connfd)
         playerPosition.x = atoi(plrX);
         Rio_readlineb(&rio, plrY, MAXLINE);
         playerPosition.y = atoi(plrY);
-        //process the even that we recieved
-        processInputs(buf);
+        //after client processes
+        //move to 
+        Rio_readlineb(&rio, new_X, MAXLINE);
+        Rio_readlineb(&rio, new_Y, MAXLINE);
+        moveTo(atoi(new_X) ,atoi(new_Y) );
         //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or write() ?
         //show UI data to user
