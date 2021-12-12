@@ -193,12 +193,12 @@ void user_Interact(int connfd)
     Rio_readinitb(&rio, connfd);
 
     while((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { //line:netp:user_Interact:eof
-	    //printf("server received %d bytes\n", (int)n);
-	    //Rio_writen(connfd, buf, n);
-        //buf is what user sent
 
         //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        //show UI data to user
+        Rio_writen(connfd, score, sizeof(int));
+        Rio_writen(connfd, level, sizeof(int));
         //get this users x and y
         Rio_readlineb(&rio, plrX, MAXLINE);
         playerPosition.x = plrX;
@@ -208,6 +208,9 @@ void user_Interact(int connfd)
         processInputs(buf);
         //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or write() ?
+        //show UI data to user
+        Rio_writen(connfd, score, sizeof(int));
+        Rio_writen(connfd, level, sizeof(int));
 
 
         
