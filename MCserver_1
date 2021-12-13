@@ -68,10 +68,16 @@ void initGrid() //i think creates all the stuff in a grid like where the tomato 
     }
 
     // force player's position to be grass
+    playerPosition.x = rand()%GRIDSIZE ; 
+    playerPosition.y = rand()%GRIDSIZE ; 
+
     if (grid[playerPosition.x][playerPosition.y] == TILE_TOMATO) {
         grid[playerPosition.x][playerPosition.y] = TILE_PLAYER;
         numTomatoes--;
     }
+     
+    // Rio_writen(connfdp, &playerPosition.x, sizeof(int));
+    // Rio_writen(connfdp, &playerPosition.x, sizeof(int));
 
     // ensure grid isn't empty
     while (numTomatoes == 0)
@@ -166,20 +172,22 @@ void user_Interact(int connfd)
         //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
         //show UI data to user
-        Rio_writen(connfd, &score, sizeof(int));
         Rio_writen(connfd, &level, sizeof(int));
+        Rio_writen(connfd, &score, sizeof(int));
         //get this users x and y
         Rio_readlineb(&rio, plrX, MAXLINE);
         playerPosition.x = atoi(plrX);
         Rio_readlineb(&rio, plrY, MAXLINE);
         playerPosition.y = atoi(plrY);
         //after client processes
-        //move to 
+        //move to //the not 2 lines should be in porcess in the client
         Rio_readlineb(&rio, new_X, MAXLINE);
         Rio_readlineb(&rio, new_Y, MAXLINE);
         moveTo(atoi(new_X) ,atoi(new_Y) );
         //show grid to user
         Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or write() ?
+        Rio_writen(connfd, &playerPosition.x, sizeof(int));
+        Rio_writen(connfd, &playerPosition.y, sizeof(int));
         //show UI data to user
         Rio_writen(connfd, &score, sizeof(int));
         Rio_writen(connfd, &level, sizeof(int));
