@@ -284,9 +284,9 @@ int main(int argc, char* argv[])
         drawUI(renderer);
         //// give our players location
         playerPosition.x =  rand()% GRIDSIZE ;
-        Rio_writen(connfd, &playerPosition.x , sizeof(int));
+        Rio_writen(clientfd, &playerPosition.x , sizeof(int));
         playerPosition.y =  rand()% GRIDSIZE ;
-        Rio_writen(connfd, &playerPosition.y , sizeof(int));
+        Rio_writen(clientfd, &playerPosition.y , sizeof(int));
         ///showing updated grid
         Rio_readlineb(clientfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
         Rio_readlineb(clientfd, &level, sizeof(int)*GRIDSIZE*GRIDSIZE);
@@ -305,6 +305,7 @@ int main(int argc, char* argv[])
         SDL_Delay(16); // 16 ms delay to limit display to 60 fps
         
     }
+    Close(clientfd);
 
     // clean up everything
     SDL_DestroyTexture(grassTexture);
