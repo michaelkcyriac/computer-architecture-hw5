@@ -1,0 +1,228 @@
+/* 
+ * user_Interactservert.c - A concurrent user_Interact server using threads
+ */
+/* $begin user_Interactservertmain */
+#include "csapp.h"
+#include <stdio.h>
+#include <stdbool.h>
+#include <time.h>
+
+
+#define GRID_DRAW_WIDTH 640
+#define GRID_DRAW_HEIGHT 640
+
+#define WINDOW_WIDTH GRID_DRAW_WIDTH
+#define WINDOW_HEIGHT (HEADER_HEIGHT + GRID_DRAW_HEIGHT)
+
+// Header displays current score
+#define HEADER_HEIGHT 50
+
+// Number of cells vertically/horizontally in the grid
+#define GRIDSIZE 10
+
+
+void user_Interact(int connfd);
+void *thread(void *vargp);
+
+typedef struct
+{
+    int x;
+    int y;
+} Position;
+
+typedef enum
+{
+    TILE_GRASS,
+    TILE_TOMATO,
+    TILE_PLAYER
+} TILETYPE;
+
+TILETYPE grid[GRIDSIZE][GRIDSIZE];
+
+Position playerPosition;
+int score;
+int level;
+int numTomatoes;
+
+pthread_mutex_t boardlock = PTHREAD_MUTEX_INITIALIZER;
+
+bool shouldExit = false;
+
+double rand01()
+{
+    return (double) rand() / (double) RAND_MAX;
+}
+
+
+
+void initGrid() //i think creates all the stuff in a grid like where the tomato should be 
+{
+    for (int i = 0; i < GRIDSIZE; i++) {
+        for (int j = 0; j < GRIDSIZE; j++) {
+            double r = rand01();
+            if(grid[i][j] == TILE_PLAYER) 
+                continue;
+            if (r < 0.1) {
+                grid[i][j] = TILE_TOMATO;
+                numTomatoes++;
+            }
+            else
+                grid[i][j] = TILE_GRASS;
+        }
+    }
+
+    // force player's position to be grass
+    // playerPosition.x = rand()%GRIDSIZE ; 
+    // playerPosition.y = rand()%GRIDSIZE ; 
+
+    // if (grid[playerPosition.x][playerPosition.y] == TILE_TOMATO) {
+    //     grid[playerPosition.x][playerPosition.y] = TILE_PLAYER;
+    //     numTomatoes--;
+    // }
+     
+    // Rio_writen(connfdp, &playerPosition.x, sizeof(int));
+    // Rio_writen(connfdp, &playerPosition.x, sizeof(int));
+
+    // ensure grid isn't empty
+    while (numTomatoes == 0)
+        initGrid();
+}
+
+void moveTo(int x, int y ,int *curx, int *cury)
+{
+    // Prevent falling off the grid
+    if (x < 0 || x >= GRIDSIZE || y < 0 || y >= GRIDSIZE)
+        return;
+
+    // Sanity check: player can only move to 4 adjacent squares
+    if (!(abs(*curx - x) == 1 && abs(*cury - y) == 0) &&
+        !(abs(*curx - x) == 0 && abs(*cury - y) == 1)) {
+        fprintf(stderr, "Invalid move attempted from (%d, %d) to (%d, %d)\n", *curx, *cury, x, y);
+        return;
+    }
+
+    if(grid[x][y] != TILE_PLAYER ){
+        grid[*curx][*cury] = TILE_GRASS;
+        *curx = x;
+        *cury = y;
+
+        if (grid[x][y] == TILE_TOMATO) {
+            grid[x][y] = TILE_PLAYER;
+            score++;
+            numTomatoes--;
+            if (numTomatoes == 0) {
+                level++;
+                initGrid();
+            }
+        }else{
+            grid[x][y] = TILE_PLAYER;
+        }
+
+    }
+
+
+}
+
+
+
+int main(int argc, char **argv) 
+{
+    int listenfd, *connfdp;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+    pthread_t tid; 
+
+    initGrid();
+
+    if (argc != 2) {
+	fprintf(stderr, "usage: %s <port>\n", argv[0]);
+	exit(0);
+    }
+    
+    listenfd = Open_listenfd(argv[1]);
+    
+
+    while (1) {
+        clientlen=sizeof(struct sockaddr_storage);
+	    connfdp = Malloc(sizeof(int)); //line:conc:user_Interactservert:beginmalloc
+	    *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen); //line:conc:user_Interactservert:endmalloc
+	    Pthread_create(&tid, NULL, thread, connfdp);
+    }
+}
+
+/* Thread routine */
+void *thread(void *vargp) 
+{  
+    int connfd = *((int *)vargp);
+    Pthread_detach(pthread_self()); //line:conc:user_Interactservert:detach
+    Free(vargp);                    //line:conc:user_Interactservert:free
+    user_Interact(connfd);
+    Close(connfd);
+    return NULL;
+}
+/* $end user_Interactservertmain */
+void user_Interact(int connfd) 
+{
+    //playerPosition.x = playerPosition.y = GRIDSIZE / 2;
+    //Position playerPosition;
+    playerPosition.x = playerPosition.y = rand()%GRIDSIZE ;
+     //makes the initial grid
+    
+    size_t n; 
+    char buf[MAXLINE]; 
+    int plrX,plrY, new_X, new_Y;
+    rio_t rio;
+
+    Rio_readinitb(&rio, connfd); // waiting for somththing??
+
+    plrX = rand()% GRIDSIZE;
+    plrY = rand()% GRIDSIZE;
+
+    pthread_mutex_lock(&boardlock);
+
+    while(grid[plrX][plrY] != TILE_GRASS){
+        plrX = rand()% GRIDSIZE;
+        plrY = rand()% GRIDSIZE;
+    }
+    grid[plrX][plrY] = TILE_PLAYER;
+    pthread_mutex_unlock(&boardlock);
+    
+
+    while(!shouldExit) { //line:netp:user_Interact:eof
+        //181 to 187 is updating the clients about the borad
+        pthread_mutex_lock(&boardlock);
+        Rio_writen(connfd, &plrX, sizeof(int));
+        Rio_writen(connfd, &plrY, sizeof(int));
+        //show grid to client
+        Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        //show UI data to user
+        Rio_writen(connfd, &level, sizeof(int));
+        Rio_writen(connfd, &score, sizeof(int));
+        //get this users x and y
+        // Rio_readnb(&rio, &plrX, sizeof(int)); 
+        // playerPosition.x = plrX;
+        // Rio_readnb(&rio, &plrY, sizeof(int));
+        // playerPosition.y = plrY;
+        //after client processes
+        //move to //the not 2 lines should be in porcess in the client
+        Rio_readnb(&rio, &new_X, sizeof(int));
+        Rio_readnb(&rio, &new_Y, sizeof(int));
+        moveTo(new_X ,new_Y , &plrX, &plrY );
+
+        pthread_mutex_unlock(&boardlock);
+        //show grid to user
+        // Rio_writen(connfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or write() ?
+        // Rio_writen(connfd, &playerPosition.x, sizeof(int));
+        // Rio_writen(connfd, &playerPosition.y, sizeof(int));
+        // //show UI data to user
+        // Rio_writen(connfd, &score, sizeof(int));
+        // Rio_writen(connfd, &level, sizeof(int));
+        
+    }
+    
+}
+
+/* $end user_Interact */
+
+
+
