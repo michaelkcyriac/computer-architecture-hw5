@@ -38,6 +38,7 @@ Position playerPosition;
 int score;
 int level;
 int numTomatoes;
+int clientfd;
 
 bool shouldExit = false;
 
@@ -95,8 +96,8 @@ void initSDL()
 
 void moveTo(int x, int y)
 {
-    Rio_writen(connfd, &x, sizeof(int));
-    Rio_writen(connfd, &y , sizeof(int));
+    Rio_writen(clientfd, &x, sizeof(int));
+    Rio_writen(clientfd, &y , sizeof(int));
     
     // // Prevent falling off the grid
     // if (x < 0 || x >= GRIDSIZE || y < 0 || y >= GRIDSIZE)
@@ -219,12 +220,13 @@ void drawUI(SDL_Renderer* renderer)
     SDL_DestroyTexture(levelTexture);
 }
 
+
 int main(int argc, char* argv[])
 {
     srand(time(NULL));
 
-    int clientfd;
-    char *host, *port, buf[MAXLINE];
+    
+    char *host, *port,buf[20];
     rio_t rio;
 
     if (argc != 3) {
@@ -235,6 +237,7 @@ int main(int argc, char* argv[])
     port = argv[2];
 
     clientfd = Open_clientfd(host, port);
+
     Rio_readinitb(&rio, clientfd);
 
     level = 1;
@@ -275,27 +278,31 @@ int main(int argc, char* argv[])
     // main game loop
     while (!shouldExit) {
 
-        Rio_readlineb(clientfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or read() ?
+        Rio_readlineb( &rio, grid, sizeof(int)*GRIDSIZE*GRIDSIZE); //or read() ?
         //read and right the leven and score
-        Rio_readlineb(clientfd, &level, sizeof(int)*GRIDSIZE*GRIDSIZE);
-        Rio_readlineb(clientfd, &score, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        Rio_readlineb(&rio, &level, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        Rio_readlineb(&rio, &score, sizeof(int)*GRIDSIZE*GRIDSIZE);
         ////drawing grid and UI data
+        SDL_SetRenderDrawColor(renderer, 0, 105, 6, 255);
+        SDL_RenderClear(renderer);
+
         drawGrid(renderer, grassTexture, tomatoTexture, playerTexture);
         drawUI(renderer);
         //// give our players location
-        playerPosition.x =  rand()% GRIDSIZE ;
         Rio_writen(clientfd, &playerPosition.x , sizeof(int));
-        playerPosition.y =  rand()% GRIDSIZE ;
         Rio_writen(clientfd, &playerPosition.y , sizeof(int));
         ///showing updated grid
-        Rio_readlineb(clientfd, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
-        Rio_readlineb(clientfd, &level, sizeof(int)*GRIDSIZE*GRIDSIZE);
-        Rio_readlineb(clientfd, &score, sizeof(int)*GRIDSIZE*GRIDSIZE);
-
         SDL_SetRenderDrawColor(renderer, 0, 105, 6, 255);
         SDL_RenderClear(renderer);
 
         processInputs();
+        Rio_readlineb(&rio, grid, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        Rio_readlineb(&rio, buf, sizeof(int));
+        playerPosition.x = atoi(buf);
+        Rio_readlineb(&rio, buf, sizeof(int));
+        playerPosition.y = atoi(buf);
+        Rio_readlineb(&rio, &score, sizeof(int)*GRIDSIZE*GRIDSIZE);
+        Rio_readlineb(&rio, &level, sizeof(int)*GRIDSIZE*GRIDSIZE);
 
         drawGrid(renderer, grassTexture, tomatoTexture, playerTexture);
         drawUI(renderer);
